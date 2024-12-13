@@ -6,7 +6,7 @@ This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 '''
 import traceback  # DEV
-import base64, os, socket, sys, time, copy, struct
+import base64, os, socket, sys, time, copy, struct, platform
 from random import randint
 from subprocess import check_output, Popen, STDOUT, CalledProcessError
 from io import StringIO
@@ -48,6 +48,64 @@ VERSION = '1'
 MIN_TIMEOUT = 60*60*24*2
 MIN_TIMEOUT = 20 # DEV
 
+def dns_query_aaaa(host, dns_server='1.1.1.1', port=53):
+    def build_query(domain):
+        # Generate a random transaction ID (2 bytes)
+        transaction_id = struct.pack('!H', 0x1234)
+
+        # Flags: standard query (0x0100)
+        flags = struct.pack('!H', 0x0100)
+
+        # Questions: 1, Answer RRs: 0, Authority RRs: 0, Additional RRs: 0
+        counts = struct.pack('!HHHH', 1, 0, 0, 0)
+
+        # Encode the domain name (e.g., www.example.com -> 3www7example3com0)
+        qname = b''.join(struct.pack('B', len(part)) + part.encode() for part in domain.split('.')) + b'\x00'
+
+        # Query type (AAAA: 28) and class (IN: 1)
+        qtype_qclass = struct.pack('!HH', 28, 1)
+
+        # Combine everything into the query
+        return transaction_id + flags + counts + qname + qtype_qclass
+
+    def parse_response(response):
+        # Extract the answer section starting at byte 12 (header is 12 bytes long)
+        header_size = 12
+        question_size = len(build_query(host)) - header_size
+        answer_section = response[header_size + question_size:]
+
+        # Parse the answer section
+        answers = []
+        while answer_section:
+            # Skip the name field (compressed, 2 bytes for pointer)
+            pointer, = struct.unpack('!H', answer_section[:2])
+            if pointer & 0xC000 != 0xC000:
+                raise ValueError("Unexpected name format in response")
+
+            # Skip over TYPE (2 bytes), CLASS (2 bytes), TTL (4 bytes), RDLENGTH (2 bytes)
+            record_type, record_class, ttl, rdlength = struct.unpack('!HHIH', answer_section[2:12])
+            rdata = answer_section[12:12 + rdlength]
+
+            if record_type == 28:  # AAAA record
+                ipv6_address = socket.inet_ntop(socket.AF_INET6, rdata)
+                answers.append((socket.AF_INET6, socket.SOCK_STREAM, 0, '', (ipv6_address, 0)))
+
+            # Move to the next record
+            answer_section = answer_section[12 + rdlength:]
+
+        return answers
+
+    # Create the DNS query
+    query = build_query(host)
+
+    # Send the query to the DNS server
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(2)
+        sock.sendto(query, (dns_server, port))
+        response, _ = sock.recvfrom(512)  # DNS responses are typically < 512 bytes
+
+    # Parse and return the response
+    return parse_response(response)
 
 def main():
     global servers
@@ -400,12 +458,18 @@ def dnsFwdQuery(typecode=None, msg=None, domain=None, is_data=True):
 #                print("Answer A", answer4)
 
                 print("Session init query AAAA", outbound)
-                answer = socket.getaddrinfo(outbound, None, socket.AF_INET6, socket.SOCK_DGRAM)
+                if platform.system() == "Darwin":
+                    answer = dns_query_aaaa(outbound)
+                else:
+                    answer = socket.getaddrinfo(outbound, None, socket.AF_INET6, socket.SOCK_DGRAM)
 
             # Regular data transfer
             else:
                 print("Data query AAAA")
-                answer = socket.getaddrinfo(outbound, None, socket.AF_INET6, socket.SOCK_DGRAM)
+                if platform.system() == "Darwin":
+                    answer = dns_query_aaaa(outbound)
+                else:
+                    answer = socket.getaddrinfo(outbound, None, socket.AF_INET6, socket.SOCK_DGRAM)
 
             print("Answer AAAA", answer)
 

